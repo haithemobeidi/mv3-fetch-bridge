@@ -1,0 +1,38 @@
+{
+  "name": "mv3-fetch-bridge",
+  "version": "0.1.0",
+  "description": "Cookie-authenticated fetch bridge for Chrome MV3 extensions: route side-panel/content-script requests through the service worker with allowlist validation, an SSRF-safe public-probe mode, per-host rate limiting, timeouts, cancellation, and a typed error taxonomy.",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "keywords": [
+    "chrome-extension",
+    "manifest-v3",
+    "service-worker",
+    "fetch",
+    "cors",
+    "cookies",
+    "session"
+  ],
+  "license": "MIT",
+  "devDependencies": {
+    "@types/chrome": "0.2.5",
+    "typescript": "7.0.2",
+    "vitest": "4.1.10"
+  }
+}

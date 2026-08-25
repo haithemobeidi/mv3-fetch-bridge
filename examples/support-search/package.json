@@ -1,0 +1,11 @@
+{
+  "name": "support-search-extension",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Chrome MV3 side-panel extension that searches Intercom, Slack, and Linear through the mv3-fetch-bridge.",
+  "scripts": {
+    "build": "node build.mjs",
+    "watch": "node build.mjs --watch"
+  }
+}

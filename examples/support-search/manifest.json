@@ -1,0 +1,32 @@
+{
+  "manifest_version": 3,
+  "name": "Support Search",
+  "version": "0.1.0",
+  "description": "Search Intercom conversations, Slack messages, and Linear issues for tickets matching a customer's query.",
+  "permissions": ["sidePanel", "storage", "contextMenus"],
+  "host_permissions": [
+    "https://api.intercom.io/*",
+    "https://api.eu.intercom.io/*",
+    "https://api.au.intercom.io/*",
+    "https://slack.com/*",
+    "https://*.slack.com/*",
+    "https://api.linear.app/*"
+  ],
+  "background": {
+    "service_worker": "dist/worker.js",
+    "type": "module"
+  },
+  "side_panel": {
+    "default_path": "panel.html"
+  },
+  "action": {
+    "default_title": "Support Search"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://app.slack.com/*"],
+      "js": ["dist/slack-token.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}

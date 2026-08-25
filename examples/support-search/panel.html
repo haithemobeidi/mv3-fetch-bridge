@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Support Search</title>
+    <style>
+      :root {
+        --bg: #ffffff;
+        --fg: #1a1a1a;
+        --muted: #6b7280;
+        --border: #e5e7eb;
+        --card: #f9fafb;
+        --accent: #4f46e5;
+        --accent-fg: #ffffff;
+        --ok: #059669;
+        --warn: #b45309;
+        --err: #dc2626;
+        --intercom: #1f8ded;
+        --slack: #611f69;
+        --linear: #5e6ad2;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #0f1115;
+          --fg: #e5e7eb;
+          --muted: #9ca3af;
+          --border: #262b36;
+          --card: #171a21;
+          --accent: #6366f1;
+          --accent-fg: #ffffff;
+          --ok: #34d399;
+          --warn: #fbbf24;
+          --err: #f87171;
+        }
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font: 13px/1.5 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+        color: var(--fg);
+        background: var(--bg);
+      }
+      header { padding: 12px 14px 8px; }
+      h1 { font-size: 14px; margin: 0 0 8px; letter-spacing: 0.2px; }
+      .searchRow { display: flex; gap: 6px; }
+      #query {
+        flex: 1; min-width: 0; padding: 8px 10px; font-size: 13px;
+        border: 1px solid var(--border); border-radius: 8px;
+        background: var(--bg); color: var(--fg);
+      }
+      #query:focus { outline: 2px solid var(--accent); outline-offset: 0; }
+      button {
+        font: inherit; cursor: pointer; border-radius: 8px;
+        border: 1px solid var(--border); background: var(--card); color: var(--fg);
+        padding: 8px 12px;
+      }
+      button:hover { border-color: var(--accent); }
+      #go { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+      #go:disabled { opacity: 0.6; cursor: default; }
+      .toggles { display: flex; gap: 6px; margin-top: 8px; }
+      .toggle { padding: 5px 10px; font-size: 12px; }
+      .toggle[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); font-weight: 600; }
+      .toggle[aria-pressed="false"] { opacity: 0.55; }
+      main { padding: 4px 14px 14px; }
+      .group { margin-top: 14px; }
+      .groupHead {
+        display: flex; align-items: center; gap: 8px; margin-bottom: 6px;
+      }
+      .dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+      .dot.intercom { background: var(--intercom); }
+      .dot.slack { background: var(--slack); }
+      .dot.linear { background: var(--linear); }
+      .groupHead .name { font-weight: 600; }
+      .pill {
+        margin-left: auto; font-size: 11px; padding: 2px 8px; border-radius: 999px;
+        border: 1px solid var(--border); color: var(--muted); white-space: nowrap;
+      }
+      .pill.ok { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 40%, transparent); }
+      .pill.auth, .pill.unconfigured { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 40%, transparent); }
+      .pill.unreachable, .pill.error { color: var(--err); border-color: color-mix(in srgb, var(--err) 40%, transparent); }
+      .note { color: var(--muted); font-size: 12px; margin: 2px 0 0; }
+      .note button { padding: 2px 8px; font-size: 11px; margin-left: 6px; }
+      .card {
+        display: block; text-decoration: none; color: inherit;
+        border: 1px solid var(--border); background: var(--card);
+        border-radius: 8px; padding: 8px 10px; margin-bottom: 6px;
+      }
+      .card:hover { border-color: var(--accent); }
+      .card .title { font-weight: 600; font-size: 12.5px; }
+      .card .snippet { color: var(--fg); opacity: 0.85; margin: 3px 0 0; }
+      .card .meta { color: var(--muted); font-size: 11px; margin-top: 4px; display: flex; gap: 8px; flex-wrap: wrap; }
+      .empty { color: var(--muted); padding: 20px 0; text-align: center; }
+      details.settings { margin: 16px 14px; border-top: 1px solid var(--border); padding-top: 10px; }
+      details.settings summary { cursor: pointer; color: var(--muted); font-size: 12px; }
+      .field { margin-top: 10px; }
+      .field label { display: block; font-size: 12px; margin-bottom: 3px; }
+      .field input {
+        width: 100%; padding: 7px 9px; font-size: 12px;
+        border: 1px solid var(--border); border-radius: 7px; background: var(--bg); color: var(--fg);
+      }
+      .field .hint { color: var(--muted); font-size: 11px; margin-top: 3px; }
+      .slackStatus { font-size: 12px; margin-top: 4px; }
+      .row { display: flex; gap: 6px; align-items: center; margin-top: 10px; }
+      .saved { color: var(--ok); font-size: 12px; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>Support Search</h1>
+      <div class="searchRow">
+        <input id="query" type="search" placeholder="Search tickets, messages, issues…" autocomplete="off" />
+        <button id="go">Search</button>
+      </div>
+      <div class="toggles" id="toggles" role="group" aria-label="Sources to search"></div>
+    </header>
+    <main id="results">
+      <div class="empty">Enter a customer's query to search across your tools.</div>
+    </main>
+
+    <details class="settings">
+      <summary>Settings &amp; credentials</summary>
+
+      <div class="field">
+        <label for="intercomToken">Intercom access token</label>
+        <input id="intercomToken" type="password" placeholder="dG9r…" autocomplete="off" />
+        <div class="hint">Developer Hub → your app → Access token.</div>
+      </div>
+
+      <div class="field">
+        <label for="linearApiKey">Linear API key</label>
+        <input id="linearApiKey" type="password" placeholder="lin_api_…" autocomplete="off" />
+        <div class="hint">Linear → Settings → Security &amp; access → Personal API keys.</div>
+      </div>
+
+      <div class="field">
+        <label>Slack</label>
+        <div class="slackStatus" id="slackStatus">Not captured yet.</div>
+        <div class="hint">Auto-captured from an open Slack tab — no token to paste.</div>
+        <div class="row">
+          <button id="openSlack" type="button">Open Slack to capture</button>
+        </div>
+      </div>
+
+      <div class="row">
+        <button id="save" type="button">Save</button>
+        <span class="saved" id="savedMsg" hidden>Saved ✓</span>
+      </div>
+    </details>
+
+    <script type="module" src="./dist/panel.js"></script>
+  </body>
+</html>
