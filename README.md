@@ -8,10 +8,15 @@ background service worker, where they run with the browser's cookie jar
 restrictions. If the user is logged in to the target site in a tab, the bridge
 is logged in — no stored credentials, no tokens, no OAuth.
 
-Extracted and generalized from the Muck Rack Support Assistant extension's
-CORS-bypass service worker. The companion KB lesson
-(`mv3-service-worker-fetch-bridge.md` in the Knowledge Base) records the
-gotchas this design encodes; read it before modifying the bridge.
+Extracted and generalized from a production support-assistant extension; the
+design rules at the bottom encode the incidents that shaped it — read them
+before modifying the bridge.
+
+**See it in action:** [`examples/support-search`](examples/support-search) is
+a working side-panel extension built on the bridge that searches five tools
+(Slack, Zendesk, Jira, Intercom, Linear) in parallel via a pluggable
+connector registry. Its README explains the architecture end-to-end and the
+recipe for adding a source — start there if you're new to the project.
 
 ## What you get
 
@@ -48,8 +53,8 @@ import { createFetchBridge } from 'mv3-fetch-bridge';
 
 const bridge = createFetchBridge({
   allowlist: {
-    hosts: ['muckrack.com', 'app.intercom.com', 'app.slack.com', 'linear.app'],
-    hostPatterns: [/^[a-z0-9-]+\.muckrack\.com$/i],
+    hosts: ['app.example.com', 'app.slack.com', 'linear.app'],
+    hostPatterns: [/^[a-z0-9-]+\.example\.com$/i],
   },
   // Site-specific: where does this app's login page live?
   isAuthRedirect: (u) => u.pathname.startsWith('/accounts/login'),
@@ -70,7 +75,7 @@ import { createBridgeClient, mapWithConcurrency } from 'mv3-fetch-bridge';
 const bridge = createBridgeClient();
 
 // Simple: never rejects — inspect `ok`.
-const res = await bridge.fetch('https://muckrack.com/mradmin/auth/user/42/change/');
+const res = await bridge.fetch('https://app.example.com/admin/users/42/');
 if (res.ok) {
   const doc = new DOMParser().parseFromString(res.data as string, 'text/html');
 } else if (res.errorType === 'auth') {
@@ -78,16 +83,16 @@ if (res.ok) {
 }
 
 // Throwing convenience for the common scrape case:
-const html = await bridge.fetchText('https://muckrack.com/search/?q=test');
+const html = await bridge.fetchText('https://app.example.com/search/?q=test');
 
 // Cancellable:
-const call = bridge.start('https://muckrack.com/slow-page');
+const call = bridge.start('https://app.example.com/slow-page');
 cancelButton.onclick = () => call.abort();
 const result = await call.response;
 
 // Batch lookups — pace yourself; the worker rate limiter refuses, not queues:
 const rows = await mapWithConcurrency(ids, 4, (id) =>
-  bridge.fetch(`https://muckrack.com/mradmin/press/article/${id}/change/`),
+  bridge.fetch(`https://app.example.com/admin/articles/${id}/`),
 );
 ```
 
@@ -97,8 +102,8 @@ const rows = await mapWithConcurrency(ids, 4, (id) =>
 {
   "manifest_version": 3,
   "host_permissions": [
-    "https://muckrack.com/*",
-    "https://*.muckrack.com/*"
+    "https://app.example.com/*",
+    "https://*.example.com/*"
     // one entry per allowlisted host — host_permissions is what grants
     // both the CORS exemption and cookie attachment for extension fetches
   ]
@@ -109,7 +114,7 @@ The `cookies` permission is NOT required — that's for the `chrome.cookies`
 API. Cookie attachment on `fetch` comes from `host_permissions` +
 `credentials: 'include'`.
 
-## Design rules (short version — the KB lesson has the incidents)
+## Design rules (each one is a paid-for lesson)
 
 1. **Auth lives in the browser's cookie jar, not in the extension.** Never
    copy cookies around; cookie-filtering middleware here is security theater.
