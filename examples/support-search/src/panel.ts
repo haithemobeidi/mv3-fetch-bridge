@@ -7,7 +7,6 @@
 
 import { createBridgeClient } from 'mv3-fetch-bridge';
 import {
-  SOURCE_LABEL,
   loadCredentials,
   saveCredentials,
   onCredentialsChanged,
@@ -16,7 +15,7 @@ import {
   type SourceResult,
   type SourceState,
 } from './shared.js';
-import { searchIntercom, searchLinear, searchSlack } from './connectors/index.js';
+import { CONNECTORS, getConnector } from './connectors/index.js';
 
 const bridge = createBridgeClient();
 
@@ -27,22 +26,23 @@ const goBtn = $<HTMLButtonElement>('go');
 const togglesEl = $<HTMLDivElement>('toggles');
 const resultsEl = $<HTMLDivElement>('results');
 
-const SOURCES: Source[] = ['intercom', 'slack', 'linear'];
-const scope: Record<Source, boolean> = { intercom: true, slack: true, linear: true };
+// Everything below renders off the CONNECTORS registry — adding a source in
+// connectors/index.ts needs no panel changes beyond a settings field.
+const scope = Object.fromEntries(CONNECTORS.map((c) => [c.id, true])) as Record<Source, boolean>;
 
 /** Bumps on each new search so stale in-flight results are ignored. */
 let searchToken = 0;
 
 // --- Source toggle buttons (buttons + aria-pressed, NOT a radio group: arrow
 //     keys through radios would commit a source the user never chose) --------
-for (const source of SOURCES) {
+for (const connector of CONNECTORS) {
   const btn = document.createElement('button');
   btn.className = 'toggle';
-  btn.textContent = SOURCE_LABEL[source];
+  btn.textContent = connector.label;
   btn.setAttribute('aria-pressed', 'true');
   btn.addEventListener('click', () => {
-    scope[source] = !scope[source];
-    btn.setAttribute('aria-pressed', String(scope[source]));
+    scope[connector.id] = !scope[connector.id];
+    btn.setAttribute('aria-pressed', String(scope[connector.id]));
   });
   togglesEl.appendChild(btn);
 }
@@ -81,9 +81,16 @@ function renderGroup(source: Source, r: SourceResult | 'loading'): void {
   group.className = 'group';
   group.innerHTML = '';
 
+  const connector = getConnector(source);
   const head = document.createElement('div');
   head.className = 'groupHead';
-  head.innerHTML = `<span class="dot ${source}"></span><span class="name">${SOURCE_LABEL[source]}</span>`;
+  const dot = document.createElement('span');
+  dot.className = 'dot';
+  dot.style.background = connector.color;
+  const name = document.createElement('span');
+  name.className = 'name';
+  name.textContent = connector.label;
+  head.append(dot, name);
 
   const pill = document.createElement('span');
   if (r === 'loading') {
@@ -148,7 +155,7 @@ async function runSearch(): Promise<void> {
   const query = queryInput.value.trim();
   if (!query) return;
 
-  const enabled = SOURCES.filter((s) => scope[s]);
+  const enabled = CONNECTORS.filter((c) => scope[c.id]);
   if (enabled.length === 0) {
     resultsEl.innerHTML = '<div class="empty">Enable at least one source above.</div>';
     return;
@@ -157,27 +164,21 @@ async function runSearch(): Promise<void> {
   const token = ++searchToken;
   goBtn.disabled = true;
   resultsEl.innerHTML = '';
-  for (const s of enabled) renderGroup(s, 'loading');
+  for (const c of enabled) renderGroup(c.id, 'loading');
 
   const creds = await loadCredentials();
-
-  const runners: Record<Source, () => Promise<SourceResult>> = {
-    intercom: () => searchIntercom(bridge, query, creds.intercomToken, creds.intercomHost),
-    slack: () => searchSlack(bridge, query, creds.slackToken, creds.slackTeamUrl),
-    linear: () => searchLinear(bridge, query, creds.linearApiKey),
-  };
 
   // Fire all enabled sources at once (distinct hosts — no rate-limit contention)
   // and render each as it lands, so a slow source never blocks a fast one.
   await Promise.all(
-    enabled.map(async (source) => {
+    enabled.map(async (connector) => {
       let result: SourceResult;
       try {
-        result = await runners[source]();
+        result = await connector.search(bridge, query, creds);
       } catch (err) {
-        result = { source, state: 'error', results: [], message: (err as Error)?.message ?? 'Unexpected error' };
+        result = { source: connector.id, state: 'error', results: [], message: (err as Error)?.message ?? 'Unexpected error' };
       }
-      if (token === searchToken) renderGroup(source, result);
+      if (token === searchToken) renderGroup(connector.id, result);
     }),
   );
 
@@ -190,8 +191,16 @@ queryInput.addEventListener('keydown', (e) => {
 });
 
 // --- Settings --------------------------------------------------------------
-const intercomInput = $<HTMLInputElement>('intercomToken');
-const linearInput = $<HTMLInputElement>('linearApiKey');
+// Pasted text settings: input id in panel.html === key in Credentials. Adding
+// a field there and listing it here is the whole wiring.
+const TEXT_SETTINGS = [
+  'intercomToken',
+  'linearApiKey',
+  'zendeskSubdomain',
+  'jiraSiteUrl',
+] as const;
+
+const settingInput = (key: (typeof TEXT_SETTINGS)[number]): HTMLInputElement => $<HTMLInputElement>(key);
 const slackStatus = $<HTMLDivElement>('slackStatus');
 const savedMsg = $<HTMLSpanElement>('savedMsg');
 
@@ -212,18 +221,20 @@ function openSlack(): void {
 $<HTMLButtonElement>('openSlack').addEventListener('click', openSlack);
 
 $<HTMLButtonElement>('save').addEventListener('click', async () => {
-  await saveCredentials({
-    intercomToken: intercomInput.value.trim() || undefined,
-    linearApiKey: linearInput.value.trim() || undefined,
-  });
+  const patch: Partial<Credentials> = {};
+  for (const key of TEXT_SETTINGS) {
+    patch[key] = settingInput(key).value.trim() || undefined;
+  }
+  await saveCredentials(patch);
   savedMsg.hidden = false;
   setTimeout(() => (savedMsg.hidden = true), 1500);
 });
 
 async function initSettings(): Promise<void> {
   const creds = await loadCredentials();
-  intercomInput.value = creds.intercomToken ?? '';
-  linearInput.value = creds.linearApiKey ?? '';
+  for (const key of TEXT_SETTINGS) {
+    settingInput(key).value = creds[key] ?? '';
+  }
   renderSlackStatus(creds);
 }
 

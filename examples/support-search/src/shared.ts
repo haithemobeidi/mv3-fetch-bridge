@@ -8,15 +8,7 @@
 
 import type { BridgeErrorType } from 'mv3-fetch-bridge';
 
-export type Source = 'intercom' | 'slack' | 'linear';
-
-export const SOURCES: Source[] = ['intercom', 'slack', 'linear'];
-
-export const SOURCE_LABEL: Record<Source, string> = {
-  intercom: 'Intercom',
-  slack: 'Slack',
-  linear: 'Linear',
-};
+export type Source = 'intercom' | 'slack' | 'linear' | 'zendesk' | 'jira';
 
 /** One normalized hit, whatever the source. */
 export interface SearchResult {
@@ -65,6 +57,10 @@ export interface Credentials {
   slackToken?: string;
   /** e.g. https://acme.slack.com — xoxc tokens are most reliable against the workspace host. */
   slackTeamUrl?: string;
+  /** Zendesk subdomain only, e.g. "acme" for acme.zendesk.com. Session-ridden — no token. */
+  zendeskSubdomain?: string;
+  /** Jira Cloud site, e.g. https://acme.atlassian.net. Session-ridden — no token. */
+  jiraSiteUrl?: string;
 }
 
 const STORAGE_KEY = 'support-search:creds';

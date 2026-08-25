@@ -22,9 +22,13 @@ const bridge = createFetchBridge({
       // Linear GraphQL.
       'api.linear.app',
     ],
-    // Slack workspaces are dynamic subdomains (acme.slack.com). ANCHOR the
+    // Slack/Zendesk/Jira live on per-company subdomains. ANCHOR every
     // pattern — an unanchored /slack\.com/ would match slack.com.evil.net.
-    hostPatterns: [/^[a-z0-9-]+\.slack\.com$/i],
+    hostPatterns: [
+      /^[a-z0-9-]+\.slack\.com$/i,
+      /^[a-z0-9-]+\.zendesk\.com$/i,
+      /^[a-z0-9-]+\.atlassian\.net$/i,
+    ],
   },
 
   // These APIs answer auth failures with a JSON error body, not a login

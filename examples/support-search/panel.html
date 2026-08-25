@@ -16,9 +16,6 @@
         --ok: #059669;
         --warn: #b45309;
         --err: #dc2626;
-        --intercom: #1f8ded;
-        --slack: #611f69;
-        --linear: #5e6ad2;
       }
       @media (prefers-color-scheme: dark) {
         :root {
@@ -67,10 +64,8 @@
       .groupHead {
         display: flex; align-items: center; gap: 8px; margin-bottom: 6px;
       }
+      /* Dot color is set inline from the connector registry. */
       .dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
-      .dot.intercom { background: var(--intercom); }
-      .dot.slack { background: var(--slack); }
-      .dot.linear { background: var(--linear); }
       .groupHead .name { font-weight: 600; }
       .pill {
         margin-left: auto; font-size: 11px; padding: 2px 8px; border-radius: 999px;
@@ -140,6 +135,18 @@
         <div class="row">
           <button id="openSlack" type="button">Open Slack to capture</button>
         </div>
+      </div>
+
+      <div class="field">
+        <label for="zendeskSubdomain">Zendesk subdomain</label>
+        <input id="zendeskSubdomain" type="text" placeholder="acme" autocomplete="off" />
+        <div class="hint">Just the name from acme.zendesk.com — rides your logged-in agent session, no token.</div>
+      </div>
+
+      <div class="field">
+        <label for="jiraSiteUrl">Jira site URL</label>
+        <input id="jiraSiteUrl" type="text" placeholder="https://acme.atlassian.net" autocomplete="off" />
+        <div class="hint">Rides your logged-in Atlassian session, no token.</div>
       </div>
 
       <div class="row">
