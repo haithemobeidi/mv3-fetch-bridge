@@ -147,7 +147,7 @@ API. Cookie attachment on `fetch` comes from `host_permissions` +
 ## Development
 
 ```
-npm install
+npm ci          # never `npm install` in CI — see Supply chain below
 npm run typecheck
 npm test        # vitest, 50 tests
 npm run build   # emits dist/
@@ -155,3 +155,58 @@ npm run build   # emits dist/
 
 Consume it from a sibling extension project via `npm install ../mv3-fetch-bridge`
 (or copy `src/` in — it has zero runtime dependencies).
+
+## Supply chain
+
+This package ships **zero runtime dependencies**. Nothing third-party reaches an
+extension that consumes it — the published artifact is this repo's own `src/` and
+`dist/`. CI enforces that invariant and fails if a runtime dependency is ever added.
+
+The dependency tree that does exist is entirely build- and test-time:
+
+| | |
+|---|---|
+| Direct dependencies | 3, all `devDependencies` (`typescript`, `vitest`, `@types/chrome`) |
+| Runtime dependencies | 0 |
+| Lockfile entries | 93 — of which 46 are optional per-platform native binaries |
+| Actually installed on one machine | ~52 |
+| Packages declaring an install script | 1 (`fsevents`, optional, macOS-only) |
+| Sources | `registry.npmjs.org` only, every entry integrity-pinned, lockfile v3 |
+
+Two residual risks are worth naming honestly rather than rounding to zero:
+
+1. **Build tools sit in the trust path for shipped output.** `tsc` produces `dist/`,
+   and `vite`/`rolldown` bundle the example extension. A compromised release of
+   either could inject code into a shipped artifact.
+2. **`npm ci` runs on developer machines and CI runners.** Even with lifecycle
+   scripts disabled, test and build steps execute dependency code.
+
+Mitigations in place:
+
+- **`.npmrc` sets `ignore-scripts=true`**, disabling dependency
+  `preinstall`/`install`/`postinstall` hooks — the primary propagation vector for
+  npm worm attacks. (This also suppresses the root package's own `prepare` and
+  `prepublishOnly` hooks; there are none, so run `npm run build` explicitly before
+  publishing.)
+- **`.npmrc` sets `save-exact=true`** and all direct dependencies are pinned to
+  exact versions, so every upgrade is an explicit, reviewable diff.
+- **`npm ci` everywhere, never `npm install`** — refuses to deviate from the
+  lockfile, verifies integrity hashes, and fails on package.json/lockfile drift.
+- **CI** (`.github/workflows/ci.yml`) runs install-from-lockfile, the
+  zero-runtime-dependency assertion, typecheck, tests, build, and
+  `npm audit --audit-level=high` on every pull request, with `contents: read` only.
+
+Not yet done, in rough order of value:
+
+- **Adopt a minimum release age** before taking any new version. Most npm
+  compromises are detected and yanked within hours; a cooldown keeps you out of the
+  blast radius. pnpm supports this natively (`minimumReleaseAge`); npm's nearest
+  equivalent is `npm config set before <date>`.
+- **Pin GitHub Actions to full commit SHAs** rather than tags, which are mutable.
+- **Enable 2FA and OIDC trusted publishing** if this package is published to npm, so
+  there is no long-lived token to steal.
+- **Reduce the tree further.** `vitest` could be replaced by Node's built-in
+  `node --test` runner (removing roughly 40 packages), `@types/chrome` by a local
+  `chrome.d.ts`, and the example's `vite` bundler by plain `tsc` output — the service
+  worker and panel are already ES modules and the content script has no imports.
+  That would leave `typescript` as the sole third-party dependency.

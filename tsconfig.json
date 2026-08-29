@@ -8,6 +8,7 @@
     "strict": true,
     "noUncheckedIndexedAccess": false,
     "declaration": true,
+    "rootDir": "src",
     "outDir": "dist",
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true

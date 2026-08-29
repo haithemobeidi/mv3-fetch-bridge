@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Least privilege: this workflow only reads the repo.
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      # TODO: pin these to full commit SHAs (`actions/checkout@<sha> # v5`).
+      # Tags are mutable; a compromised tag re-point is a real supply-chain
+      # vector. Resolve with:
+      #   gh api repos/actions/checkout/git/ref/tags/v5 --jq .object.sha
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+
+      # `npm ci` (never `npm install`): refuses to deviate from the lockfile,
+      # verifies every integrity hash, and fails if package.json and
+      # package-lock.json have drifted apart.
+      - name: Install from lockfile
+        run: npm ci
+
+      # Core invariant of this package: nothing third-party ships to consumers.
+      # If someone adds a runtime dependency, that is a deliberate decision that
+      # should fail CI and be argued for in review — not something that lands quietly.
+      - name: Assert zero runtime dependencies
+        run: |
+          count=$(node -p "Object.keys(require('./package.json').dependencies ?? {}).length")
+          if [ "$count" != "0" ]; then
+            echo "::error::package.json declares $count runtime dependency/ies; this package must ship none."
+            node -p "JSON.stringify(require('./package.json').dependencies, null, 2)"
+            exit 1
+          fi
+          echo "OK: 0 runtime dependencies."
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+      # Advisory gate. All dependencies here are devDependencies, so a finding
+      # is a risk to build machines and build output rather than to end users —
+      # but it still blocks the merge until it is triaged.
+      - name: Audit
+        run: npm audit --audit-level=high
